@@ -4,89 +4,85 @@ import os
 from datetime import date
 import plotly.express as px
 
+st.set_page_config(page_title="Expense Tracker", layout="wide")
+
 DATA_FILE = "expenses.csv"
 
-# Load data safely
+# Load data
 if os.path.exists(DATA_FILE):
     df = pd.read_csv(DATA_FILE)
 else:
     df = pd.DataFrame(columns=["Amount", "Category", "Date", "Note"])
 
-st.title("💰 Personal Expense Tracker")
+# ---------------- HEADER ----------------
+st.markdown("<h1 style='text-align:center;color:#4CAF50;'>💰 Personal Expense Tracker</h1>", unsafe_allow_html=True)
 
 # ---------------- ADD EXPENSE ----------------
-st.header("Add Expense")
-amount = st.number_input("Amount", min_value=0.0)
-category = st.selectbox("Category", ["Food", "Travel", "Shopping", "Bills", "Others"])
-exp_date = st.date_input("Date", value=date.today())
+st.subheader("➕ Add Expense")
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    amount = st.number_input("Amount", min_value=0.0)
+with col2:
+    category = st.selectbox("Category", ["Food", "Travel", "Shopping", "Bills", "Others"])
+with col3:
+    exp_date = st.date_input("Date", value=date.today())
+
 note = st.text_input("Note")
 
-if st.button("Add Expense"):
-    new_data = pd.DataFrame([[amount, category, exp_date, note]], columns=df.columns)
-    df = pd.concat([df, new_data], ignore_index=True)
-    df.to_csv(DATA_FILE, index=False)
-    st.success("Expense Added!")
+col_add, col_clear = st.columns(2)
 
-# ---------------- BUDGET ----------------
-st.header("Budget")
-budget = st.number_input("Set Monthly Budget", min_value=0.0)
+with col_add:
+    if st.button("Add Expense"):
+        new_data = pd.DataFrame([[amount, category, exp_date, note]], columns=df.columns)
+        df = pd.concat([df, new_data], ignore_index=True)
+        df.to_csv(DATA_FILE, index=False)
+        st.success("Expense Added!")
 
-# ---------------- DISPLAY DATA ----------------
-st.header("All Expenses")
-st.dataframe(df)
+with col_clear:
+    if st.button("🗑 Clear All Expenses"):
+        df = pd.DataFrame(columns=["Amount", "Category", "Date", "Note"])
+        df.to_csv(DATA_FILE, index=False)
+        st.warning("All expenses cleared!")
 
-# ---------------- MAIN LOGIC ----------------
+# ---------------- DISPLAY ----------------
+st.subheader("📋 All Expenses")
+st.dataframe(df, use_container_width=True)
+
+# ---------------- ANALYSIS ----------------
 if not df.empty:
     df["Date"] = pd.to_datetime(df["Date"], errors='coerce')
 
     total_spent = df["Amount"].sum()
-    st.write(f"### Total Spent: ₹{total_spent}")
+    st.metric("Total Spent", f"₹{total_spent}")
 
-    # Budget calculation
-    if budget > 0:
-        percent = (total_spent / budget) * 100
-        st.write(f"Budget Used: {percent:.2f}%")
-        if percent > 100:
-            st.error("⚠️ You are over budget!")
-
-    # ---------------- CHARTS ----------------
+    # Charts layout
+    col1, col2 = st.columns(2)
 
     # Pie Chart
-    st.subheader("Spending by Category")
-    cat_data = df.groupby("Category")["Amount"].sum().reset_index()
-
-    if not cat_data.empty:
+    with col1:
+        st.subheader("📊 Category Distribution")
+        cat_data = df.groupby("Category")["Amount"].sum().reset_index()
         fig1 = px.pie(cat_data, names="Category", values="Amount")
         st.plotly_chart(fig1, use_container_width=True)
 
-    # Line Chart
-    st.subheader("Spending Over Time")
-    daily = df.groupby("Date")["Amount"].sum().reset_index()
-
-    if not daily.empty:
-        fig2 = px.line(daily, x="Date", y="Amount")
+    # Bar Chart
+    with col2:
+        st.subheader("📉 Category Comparison")
+        fig2 = px.bar(cat_data, x="Category", y="Amount")
         st.plotly_chart(fig2, use_container_width=True)
 
-    # Bar Chart
-    st.subheader("Category Comparison")
-    if not cat_data.empty:
-        fig3 = px.bar(cat_data, x="Category", y="Amount")
-        st.plotly_chart(fig3, use_container_width=True)
-
-    # ---------------- FILTER ----------------
-    st.header("Filter")
-    categories = ["All"] + list(df["Category"].dropna().unique())
-    selected_category = st.selectbox("Filter by Category", categories)
-
-    if selected_category != "All":
-        filtered = df[df["Category"] == selected_category]
-        st.dataframe(filtered)
+    # Line Chart
+    st.subheader("📈 Spending Over Time")
+    daily = df.groupby("Date")["Amount"].sum().reset_index()
+    fig3 = px.line(daily, x="Date", y="Amount")
+    st.plotly_chart(fig3, use_container_width=True)
 
 else:
-    st.info("No data available. Please add an expense to see insights.")
+    st.info("No data available. Add some expenses to see insights.")
 
 # ---------------- EXPORT ----------------
-st.header("Export Data")
+st.subheader("📥 Export Data")
 if st.button("Download CSV"):
     df.to_csv("exported_expenses.csv", index=False)
     st.success("File saved as exported_expenses.csv")
