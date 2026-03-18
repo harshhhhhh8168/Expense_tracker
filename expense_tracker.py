@@ -6,7 +6,45 @@ import plotly.express as px
 
 st.set_page_config(page_title="Expense Tracker", layout="wide")
 
-DATA_FILE = "expenses.csv"
+# ---------------- USER CREDENTIALS ----------------
+USERS = {
+    "alice": "password123",
+    "bob": "mypassword",
+    "charlie": "charlie@pass",
+}
+
+# ---------------- LOGIN ----------------
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.username = ""
+
+if not st.session_state.logged_in:
+    st.markdown("<h1 style='text-align:center;color:#4CAF50;'>💰 Personal Expense Tracker</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align:center;'>🔐 Login</h3>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        if st.button("Login", use_container_width=True):
+            if username in USERS and USERS[username] == password:
+                st.session_state.logged_in = True
+                st.session_state.username = username
+                st.success(f"Welcome, {username}!")
+                st.rerun()
+            else:
+                st.error("Invalid username or password.")
+    st.stop()
+
+# ---------------- LOGOUT BUTTON ----------------
+col_title, col_logout = st.columns([8, 1])
+with col_logout:
+    if st.button("Logout"):
+        st.session_state.logged_in = False
+        st.session_state.username = ""
+        st.rerun()
+
+# Each user gets their own CSV file
+DATA_FILE = f"expenses_{st.session_state.username}.csv"
 
 # Load data
 if os.path.exists(DATA_FILE):
@@ -16,34 +54,29 @@ else:
 
 # ---------------- HEADER ----------------
 st.markdown("<h1 style='text-align:center;color:#4CAF50;'>💰 Personal Expense Tracker</h1>", unsafe_allow_html=True)
+st.markdown(f"<p style='text-align:center;'>👤 Logged in as <b>{st.session_state.username}</b></p>", unsafe_allow_html=True)
 
 # ---------------- BUDGET ----------------
 st.subheader("💰 Monthly Budget")
-
 budget = st.number_input("Set Monthly Budget (₹)", min_value=0.0)
 
 # ---------------- ADD EXPENSE ----------------
 st.subheader("➕ Add Expense")
 col1, col2, col3 = st.columns(3)
-
 with col1:
     amount = st.number_input("Amount", min_value=0.0)
 with col2:
     category = st.selectbox("Category", ["Food", "Travel", "Shopping", "Bills", "Others"])
 with col3:
     exp_date = st.date_input("Date", value=date.today())
-
 note = st.text_input("Note")
-
 col_add, col_clear = st.columns(2)
-
 with col_add:
     if st.button("Add Expense"):
         new_data = pd.DataFrame([[amount, category, exp_date, note]], columns=df.columns)
         df = pd.concat([df, new_data], ignore_index=True)
         df.to_csv(DATA_FILE, index=False)
         st.success("Expense Added!")
-
 with col_clear:
     if st.button("🗑 Clear All Expenses"):
         df = pd.DataFrame(columns=["Amount", "Category", "Date", "Note"])
@@ -57,7 +90,6 @@ st.dataframe(df, use_container_width=True)
 # ---------------- ANALYSIS ----------------
 if not df.empty:
     df["Date"] = pd.to_datetime(df["Date"], errors='coerce')
-
     total_spent = df["Amount"].sum()
     st.metric("Total Spent", f"₹{total_spent}")
 
@@ -65,7 +97,6 @@ if not df.empty:
     if budget > 0:
         percent = (total_spent / budget) * 100
         st.write(f"### Budget Used: {percent:.2f}%")
-
         if percent > 100:
             st.error("⚠️ You are over budget!")
         elif percent > 80:
