@@ -8,7 +8,7 @@ st.set_page_config(page_title="Expense Tracker", layout="wide")
 
 # ---------------- USER CREDENTIALS ----------------
 USERS = {
-    "alice": "password123",
+    "Harsh": "password123",
     "bob": "mypassword",
     "charlie": "charlie@pass",
 }
