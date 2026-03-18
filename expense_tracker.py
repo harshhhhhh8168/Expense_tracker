@@ -17,6 +17,11 @@ else:
 # ---------------- HEADER ----------------
 st.markdown("<h1 style='text-align:center;color:#4CAF50;'>💰 Personal Expense Tracker</h1>", unsafe_allow_html=True)
 
+# ---------------- BUDGET ----------------
+st.subheader("💰 Monthly Budget")
+
+budget = st.number_input("Set Monthly Budget (₹)", min_value=0.0)
+
 # ---------------- ADD EXPENSE ----------------
 st.subheader("➕ Add Expense")
 col1, col2, col3 = st.columns(3)
@@ -55,6 +60,18 @@ if not df.empty:
 
     total_spent = df["Amount"].sum()
     st.metric("Total Spent", f"₹{total_spent}")
+
+    # --------- BUDGET CALCULATION ---------
+    if budget > 0:
+        percent = (total_spent / budget) * 100
+        st.write(f"### Budget Used: {percent:.2f}%")
+
+        if percent > 100:
+            st.error("⚠️ You are over budget!")
+        elif percent > 80:
+            st.warning("⚠️ You are nearing your budget limit")
+        else:
+            st.success("✅ You are within budget")
 
     # Charts layout
     col1, col2 = st.columns(2)
