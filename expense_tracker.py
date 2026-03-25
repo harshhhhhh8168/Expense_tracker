@@ -169,14 +169,16 @@ CATEGORY_COLORS = {
 }
 
 # ─────────────────────────────────────────
-#  LOAD DATA
+#  LOAD DATA  ← FIX: always parse dates uniformly after loading
 # ─────────────────────────────────────────
-if os.path.exists(DATA_FILE):
-    df = pd.read_csv(DATA_FILE)
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-else:
-    df = pd.DataFrame(columns=["Amount", "Category", "Date", "Note"])
+def load_data() -> pd.DataFrame:
+    if os.path.exists(DATA_FILE):
+        df = pd.read_csv(DATA_FILE)
+        df["Date"] = pd.to_datetime(df["Date"], errors="coerce")  # FIX: uniform datetime
+        return df
+    return pd.DataFrame(columns=["Amount", "Category", "Date", "Note"])
 
+df = load_data()
 saved_budget = load_budget()
 
 # ─────────────────────────────────────────
@@ -214,7 +216,17 @@ with st.sidebar:
 # ─────────────────────────────────────────
 total_spent   = df["Amount"].sum() if not df.empty else 0.0
 today         = date.today()
-monthly_df    = df[(df["Date"].dt.month == today.month) & (df["Date"].dt.year == today.year)] if not df.empty else pd.DataFrame()
+
+# FIX: use .dt.date for reliable comparison against datetime.date objects
+if not df.empty:
+    mask = (
+        (df["Date"].dt.month == today.month) &
+        (df["Date"].dt.year  == today.year)
+    )
+    monthly_df = df[mask]
+else:
+    monthly_df = pd.DataFrame(columns=["Amount", "Category", "Date", "Note"])
+
 monthly_spent = monthly_df["Amount"].sum() if not monthly_df.empty else 0.0
 remaining     = max(budget - monthly_spent, 0) if budget > 0 else 0.0
 budget_pct    = min((monthly_spent / budget * 100) if budget > 0 else 0, 100)
@@ -332,8 +344,12 @@ elif page == "➕ Add Expense":
         if amount <= 0:
             st.warning("Please enter an amount greater than 0.")
         else:
-            new_row = pd.DataFrame([[amount, category, exp_date, note]], columns=["Amount", "Category", "Date", "Note"])
+            new_row = pd.DataFrame(
+                [[amount, category, pd.Timestamp(exp_date), note]],  # FIX: cast to Timestamp immediately
+                columns=["Amount", "Category", "Date", "Note"]
+            )
             df = pd.concat([df, new_row], ignore_index=True)
+            df["Date"] = pd.to_datetime(df["Date"], errors="coerce")  # FIX: re-normalise entire column
             df.to_csv(DATA_FILE, index=False)
             st.success(f"Added ₹{amount:,.0f} under {category}!")
             st.rerun()
@@ -358,6 +374,7 @@ elif page == "📋 All Expenses":
             "Amount (high)": ("Amount", False), "Amount (low)": ("Amount", True),
         }
         filtered = df[df["Category"].isin(cat_filter)].copy()
+        filtered["Date"] = pd.to_datetime(filtered["Date"], errors="coerce")  # FIX: ensure proper datetime before sort
         col_s, asc_s = sort_map[sort_by]
         filtered = filtered.sort_values(col_s, ascending=asc_s)
 
